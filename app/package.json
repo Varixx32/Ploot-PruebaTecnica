@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@ploot/db": "*",
+    "@vercel/functions": "^3.10.1",
     "jose": "^6.2.12",
     "next": "^16.4.2",
     "react": "^19.3.1",
