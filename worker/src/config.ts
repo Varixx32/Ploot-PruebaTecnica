@@ -76,9 +76,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
 
   // The lease must outlive the slowest possible processing (refresh + publish), or a healthy
   // worker would lose its post to the reaper.
-  const worstCaseMs = 2 * config.httpTimeoutMs + 5000;
+  const worstCaseMs = 2 * config.httpTimeoutMs + 1000;
   if (config.leaseSec * 1000 <= worstCaseMs) {
-    throw new Error(`WORKER_LEASE_SEC must exceed ${Math.ceil(worstCaseMs / 1000)}s (2 HTTP timeouts + margin)`);
+    throw new Error(`WORKER_LEASE_SEC must exceed ${Math.ceil(worstCaseMs / 1000)}s (refresh + publish timeouts + margin)`);
   }
   return config;
 }
