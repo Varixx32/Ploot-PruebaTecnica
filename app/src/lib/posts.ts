@@ -38,7 +38,7 @@ const SELECT_POST = `
          p.scheduled_at, p.due_at, p.timezone, p.attempts, p.external_id, p.published_at,
          p.last_error_code, p.last_error_detail, p.created_at, p.updated_at,
          p.created_at::text AS cursor_ts,
-         CASE WHEN a.throttled_until > now() THEN a.throttled_until::text END AS throttled_until,
+         CASE WHEN a.throttled_until > now() THEN CASE WHEN a.throttled_until = 'infinity' THEN 'infinity' ELSE to_json(a.throttled_until) #>> '{}' END END AS throttled_until,
          a.throttle_reason
     FROM posts p
     JOIN ambassadors a ON a.id = p.ambassador_id`;
@@ -304,7 +304,7 @@ export async function listAmbassadors(db: Db, ctx: TenantContext) {
   return withTenant(db, ctx, async (tx) => {
     const { rows } = await tx.query(
       `SELECT ambassador_id AS id, display_name, due_now::int, in_flight::int, oldest_due_scheduled_at,
-              CASE WHEN throttled_until > now() THEN throttled_until::text END AS throttled_until,
+              CASE WHEN throttled_until > now() THEN CASE WHEN throttled_until = 'infinity' THEN 'infinity' ELSE to_json(throttled_until) #>> '{}' END END AS throttled_until,
               throttle_reason, last_outcome, last_error_code, last_retry_after_sec, last_attempt_at
          FROM ambassador_queue_status ORDER BY display_name`,
     );
