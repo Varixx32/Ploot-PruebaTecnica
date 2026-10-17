@@ -1,0 +1,16 @@
+{
+  "name": "ploot-scheduler",
+  "private": true,
+  "description": "Ploot backend assessment: post scheduler (Next.js + worker + Postgres + provider mock)",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "mock",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
