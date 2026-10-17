@@ -68,13 +68,16 @@ export async function withIdempotency(
       if (!(err instanceof ApiError) || err.status >= 500) throw err;
       result = { status: err.status, body: { error: { code: err.code, message: err.message, details: err.details } } };
     }
-    await tx.query(
+    // Answer with the stored representation, so the first response and every replay are
+    // byte-identical (jsonb normalises key order).
+    const { rows: [stored] } = await tx.query<{ response_body: unknown }>(
       `UPDATE idempotency_keys
           SET response_status = $2, response_body = $3,
               post_id = (SELECT id FROM posts WHERE id = $4)
-        WHERE key = $1`,
+        WHERE key = $1
+        RETURNING response_body`,
       [key, result.status, JSON.stringify(result.body), postId],
     );
-    return { ...result, replayed: false };
+    return { status: result.status, body: stored!.response_body, replayed: false };
   });
 }
