@@ -64,5 +64,31 @@ services:
       retries: 15
       start_period: 3s
 
+  # Long-lived publisher, outside any serverless function. Replicas coordinate only through
+  # Postgres (row locks + leases), so scaling is just more containers.
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://ploot_worker_login:${WORKER_DB_PASSWORD:?run ./scripts/init-env.sh to create .env}@postgres:5432/${POSTGRES_DB:-ploot}
+      PROVIDER_BASE_URL: http://mock:4000
+      TOKEN_ENC_KEYS: ${TOKEN_ENC_KEYS:?run ./scripts/init-env.sh to create .env}
+      WORKER_AMBASSADOR_MIN_INTERVAL_SEC: ${WORKER_AMBASSADOR_MIN_INTERVAL_SEC:-25}
+      WORKER_APP_RATE_CAPACITY: ${WORKER_APP_RATE_CAPACITY:-10}
+      WORKER_APP_RATE_REFILL_PER_SEC: ${WORKER_APP_RATE_REFILL_PER_SEC:-1.5}
+      WORKER_GLOBAL_MAX_IN_FLIGHT: ${WORKER_GLOBAL_MAX_IN_FLIGHT:-20}
+      WORKER_TENANT_MAX_IN_FLIGHT: ${WORKER_TENANT_MAX_IN_FLIGHT:-5}
+      LOG_LEVEL: ${WORKER_LOG_LEVEL:-info}
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      mock:
+        condition: service_healthy
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+    stop_grace_period: 30s
+    restart: unless-stopped
+
 volumes:
   pgdata:
