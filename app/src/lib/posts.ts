@@ -157,7 +157,8 @@ export async function createPost(db: Db, ctx: TenantContext, input: z.infer<type
 
     const { rows } = await tx.query<{ id: string }>(
       `INSERT INTO posts (tenant_id, ambassador_id, content, status, scheduled_at, due_at, timezone, created_by)
-       VALUES (app_current_tenant(), $1, $2, $3, $4, CASE WHEN $3 = 'scheduled' THEN $4::timestamptz END, $5,
+       VALUES (app_current_tenant(), $1, $2, $3::post_status, $4::timestamptz,
+               CASE WHEN $3::post_status = 'scheduled' THEN $4::timestamptz END, $5,
                NULLIF(current_setting('app.profile_id', true), '')::uuid)
        RETURNING id`,
       [ambassadorId, input.content, input.status, schedule?.instant ?? null, timezone],
@@ -196,11 +197,11 @@ export async function updatePost(
 
     await tx.query(
       `UPDATE posts
-          SET content = $2, status = $3, scheduled_at = $4, timezone = $5,
-              due_at = CASE WHEN $3 = 'scheduled' THEN $4::timestamptz END,
-              attempts = CASE WHEN $6 THEN 0 ELSE attempts END,
-              last_error_code = CASE WHEN $6 THEN NULL ELSE last_error_code END,
-              last_error_detail = CASE WHEN $6 THEN NULL ELSE last_error_detail END
+          SET content = $2, status = $3::post_status, scheduled_at = $4::timestamptz, timezone = $5,
+              due_at = CASE WHEN $3::post_status = 'scheduled' THEN $4::timestamptz END,
+              attempts = CASE WHEN $6::boolean THEN 0 ELSE attempts END,
+              last_error_code = CASE WHEN $6::boolean THEN NULL ELSE last_error_code END,
+              last_error_detail = CASE WHEN $6::boolean THEN NULL ELSE last_error_detail END
         WHERE id = $1`,
       [id, input.content ?? row.content, status, scheduledAt, timezone, requeue],
     );
