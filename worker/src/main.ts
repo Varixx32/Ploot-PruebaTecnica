@@ -21,7 +21,12 @@ const worker = new Worker({
   metrics,
 });
 
-const server = config.httpPort > 0 ? startHttpServer(config.httpPort, { db, metrics, isHealthy: () => worker.isHealthy() }) : undefined;
+const server = config.httpPort > 0 ? startHttpServer(config.httpPort, {
+      db,
+      metrics,
+      isHealthy: () => worker.isHealthy(),
+      onError: (err) => logger.warn({ err }, "queue gauges query failed"),
+    }) : undefined;
 
 let stopping = false;
 async function shutdown(signal: string): Promise<void> {

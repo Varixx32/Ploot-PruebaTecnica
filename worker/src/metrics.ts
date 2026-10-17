@@ -56,7 +56,7 @@ export async function refreshQueueGauges(db: Db, metrics: Metrics): Promise<void
        (SELECT EXTRACT(EPOCH FROM now() - min(scheduled_at))::float8
           FROM posts WHERE status = 'scheduled' AND due_at <= now()) AS lag,
        (SELECT count(*)::int FROM posts WHERE status = 'publishing') AS in_flight,
-       (SELECT GREATEST(0, EXTRACT(EPOCH FROM paused_until - now()))::float8
+       (SELECT CASE WHEN paused_until > now() THEN EXTRACT(EPOCH FROM paused_until - now())::float8 ELSE 0 END
           FROM rate_buckets WHERE name = 'provider_app') AS paused`,
   );
   metrics.set("ploot_queue_due_posts", q!.due, "Posts due now and not yet published (backlog)");
@@ -67,7 +67,7 @@ export async function refreshQueueGauges(db: Db, metrics: Metrics): Promise<void
 
 export function startHttpServer(
   port: number,
-  deps: { db: Db; metrics: Metrics; isHealthy: () => boolean },
+  deps: { db: Db; metrics: Metrics; isHealthy: () => boolean; onError?: (err: unknown) => void },
 ): Server {
   const server = createServer(async (req, res) => {
     if (req.url === "/healthz") {
@@ -78,8 +78,10 @@ export function startHttpServer(
     if (req.url === "/metrics") {
       try {
         await refreshQueueGauges(deps.db, deps.metrics);
-      } catch {
-        // Serve process metrics even if the DB is unreachable.
+      } catch (err) {
+        // Serve process metrics even if the DB is unreachable, but make the failure visible.
+        deps.metrics.inc("ploot_worker_metrics_query_errors_total", {}, 1, "Failed queue-gauge queries");
+        deps.onError?.(err);
       }
       res.writeHead(200, { "content-type": "text/plain; version=0.0.4" }).end(deps.metrics.render());
       return;
