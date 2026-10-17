@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import pg from "pg";
-import { TokenCipher, createPool, ensureLoginRoles, migrate, type Db } from "@ploot/db";
+import { TokenCipher, createPool, type Db } from "@ploot/db";
+import { ensureLoginRoles, migrate } from "@ploot/db/admin";
 import { SEED_AMBASSADORS, SEED_TENANTS, seed } from "../../../packages/db/src/dev/seed.js";
 
 export { SEED_AMBASSADORS, SEED_TENANTS };

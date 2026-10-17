@@ -8,7 +8,10 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 export default defineConfig({
   resolve: {
     // Use the db package from source (no build step needed for tests).
-    alias: { "@ploot/db": new URL("../packages/db/src/index.ts", import.meta.url).pathname },
+    alias: [
+      { find: "@ploot/db/admin", replacement: new URL("../packages/db/src/admin.ts", import.meta.url).pathname },
+      { find: "@ploot/db", replacement: new URL("../packages/db/src/index.ts", import.meta.url).pathname },
+    ],
   },
   test: {
     testTimeout: 60_000,

@@ -7,10 +7,11 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@ploot/db": new URL("../packages/db/src/index.ts", import.meta.url).pathname,
-      "@/": new URL("./src/", import.meta.url).pathname,
-    },
+    alias: [
+      { find: "@ploot/db/admin", replacement: new URL("../packages/db/src/admin.ts", import.meta.url).pathname },
+      { find: "@ploot/db", replacement: new URL("../packages/db/src/index.ts", import.meta.url).pathname },
+      { find: /^@\/(.*)$/, replacement: `${new URL("./src/", import.meta.url).pathname}$1` },
+    ],
   },
   test: {
     testTimeout: 30_000,

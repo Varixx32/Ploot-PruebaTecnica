@@ -3,7 +3,8 @@
   "compilerOptions": {
     "types": ["node"],
     "paths": {
-      "@ploot/db": ["../packages/db/src/index.ts"]
+      "@ploot/db": ["../packages/db/src/index.ts"],
+      "@ploot/db/admin": ["../packages/db/src/admin.ts"]
     }
   },
   "include": ["src", "test"]
