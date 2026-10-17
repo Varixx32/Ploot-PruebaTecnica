@@ -5,6 +5,32 @@ proveedor externo. Next.js (Route Handlers) + worker separado + PostgreSQL + moc
 
 **URL pública:** https://ploot-pruebatecnica-app.vercel.app (botones «Entrar como acme / globex») · Despliegue: Vercel (app) + Neon (Postgres) + Railway (worker y mock), todo en la UE — ver [infra/](infra/README.md)
 
+## Probarlo en 5 minutos (despliegue público)
+
+Enlaces directos, que entran ya autenticados:
+
+- **Tenant acme (Ana):** https://ploot-pruebatecnica-app.vercel.app/?as=acme
+- **Tenant globex (Diego):** https://ploot-pruebatecnica-app.vercel.app/?as=globex
+
+La página incluye una guía «Qué probar» y botones de acción rápida:
+
+1. **Ciclo completo:** *Programar en 1 minuto* y ver el post pasar de Programado → Publicando… → Publicado.
+2. **Publicar ahora:** es idempotente (cada clic envía una `Idempotency-Key`).
+3. **Ráfaga de 3 posts:** el worker los espacia por Embajador en lugar de enviarlos a la vez.
+4. **Tokens (globex):** Fede falla con `token_revoked` sin reintentos; Elena tenía el token caducado y se refrescó solo.
+5. **Aislamiento:** el id de un post de acme pedido con el token de globex devuelve 404 (lo filtra Postgres RLS).
+
+**Tokens JWT:** cada sesión de la UI muestra su token con un botón *Copiar*. Por API se obtienen con
+`POST /api/demo/login {"tenant":"acme"|"globex"}`, que emite un JWT de 1 h para los perfiles de demo.
+Para cualquier otro `tenant_id`/`profile_id`: `npm run cli -w @ploot/db -- jwt --tenant <uuid> --profile <uuid>`
+con el `JWT_SECRET` del entorno.
+
+```bash
+URL=https://ploot-pruebatecnica-app.vercel.app
+TOKEN=$(curl -s -XPOST $URL/api/demo/login -d '{"tenant":"acme"}' | jq -r .token)
+curl -s $URL/api/v1/posts -H "authorization: Bearer $TOKEN"
+```
+
 ## Levantarlo en local
 
 Requisitos: Docker con Compose v2 y `openssl`.
