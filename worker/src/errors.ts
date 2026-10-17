@@ -16,6 +16,10 @@ export const ErrorCodes = {
   NETWORK_ERROR: "network_error",
   /** Token refresh hit a transient provider error: retried with backoff. */
   TOKEN_REFRESH_UNAVAILABLE: "token_refresh_unavailable",
+  /** Not a failure: waiting for Retry-After (post stays scheduled, head of queue not advanced). */
+  RATE_LIMITED: "rate_limited",
+  /** Not a failure: the account is soft-banned; queue paused until Retry-After. */
+  ACCOUNT_RESTRICTED: "account_restricted",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
