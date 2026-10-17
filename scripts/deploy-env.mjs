@@ -50,7 +50,7 @@ function pgUrl({ user, password, host, database }) {
   u.password = password;
   u.hostname = host;
   u.pathname = `/${database}`;
-  u.search = "?sslmode=require"; // channel_binding left out on purpose (not needed, not portable)
+  u.search = "?sslmode=verify-full"; // verify Neon's certificate; channel_binding left out (not portable)
   return u.toString();
 }
 
@@ -120,10 +120,24 @@ function render() {
   console.log(`  app uses the pooled host    ${pooled}`);
 }
 
+/** Shell-safe `export` lines for deploy-db.sh (eval'd, never printed): no shell parsing of .env.deploy. */
+function shellEnv() {
+  if (!existsSync(ENV_FILE)) throw new Error("Missing .env.deploy: run `node scripts/deploy-env.mjs init` first");
+  const env = parseEnv(readFileSync(ENV_FILE, "utf8"));
+  const required = ["DATABASE_URL", "APP_DB_PASSWORD", "WORKER_DB_PASSWORD", "TOKEN_ENC_KEYS", "MOCK_FIXTURE_SECRET"];
+  const missing = required.filter((k) => !env[k]);
+  if (missing.length) throw new Error(`Empty in .env.deploy: ${missing.join(", ")}`);
+  // Migrations need a session (advisory lock): direct host, no channel_binding.
+  env.DATABASE_URL = directOwnerUrl(env.DATABASE_URL);
+  const quote = (v) => `'${v.replace(/'/g, `'\\''`)}'`;
+  process.stdout.write(required.map((k) => `export ${k}=${quote(env[k])}`).join("\n") + "\n");
+}
+
 const cmd = process.argv[2];
 try {
   if (cmd === "init") init();
   else if (cmd === "render") render();
+  else if (cmd === "shell-env") shellEnv();
   else if (cmd === "direct-url") process.stdout.write(directOwnerUrl(parseEnv(readFileSync(ENV_FILE, "utf8")).DATABASE_URL ?? ""));
   else {
     console.error("usage: node scripts/deploy-env.mjs <init|render>");
