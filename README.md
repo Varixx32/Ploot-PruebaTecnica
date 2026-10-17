@@ -3,7 +3,7 @@
 Prueba técnica de backend: scheduler que publica en nombre de los Embajadores contra un
 proveedor externo. Next.js (Route Handlers) + worker separado + PostgreSQL + mock del proveedor.
 
-**URL pública:** _pendiente_
+**URL pública:** _pendiente_ · Despliegue: Vercel (app) + Neon (Postgres) + Railway (worker y mock), todo en la UE — ver [infra/](infra/README.md)
 
 ## Levantarlo en local
 
@@ -108,5 +108,8 @@ mock/                       mock del proveedor (servicio HTTP independiente)
 packages/db/                esquema SQL, migrador, acceso por tenant, cifrado de tokens, seed, CLI
 packages/provider-fixtures/ identidades del proveedor compartidas por mock y seed
 scripts/init-env.sh         genera el .env local
+scripts/deploy-db.sh        migraciones + roles + seed en la BD desplegada
+infra/                      despliegue público (Railway, Vercel) y runbook
+.github/workflows/ci.yml    pipeline: tests, imágenes, despliegue con aprobación y rollback
 docker-compose.yml          stack local completo
 ```
