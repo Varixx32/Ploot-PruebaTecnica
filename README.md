@@ -20,6 +20,7 @@ El repositorio no contiene ningún secreto: el compose se niega a arrancar sin `
 
 | Servicio | URL local | Qué es |
 |----------|-----------|--------|
+| app      | `http://localhost:3000` | API Next.js + UI de demo (botones de login de demo) |
 | postgres | `localhost:5433` | Postgres 16 |
 | setup    | — | Un solo uso: migraciones + usuarios de BD + seed (idempotente) |
 | mock     | `http://localhost:4000` | Proveedor simulado ([contrato](mock/README.md)) |
@@ -41,6 +42,29 @@ JWT para cualquier otra combinación (requiere `npm install`; lee `JWT_SECRET` d
 
 ```bash
 npm run cli -w @ploot/db -- jwt --tenant <tenant_uuid> --profile <ambassador_uuid>
+```
+
+### API
+
+Todas las rutas requieren `Authorization: Bearer <JWT>` con `tenant_id` + `profile_id`.
+
+| Método y ruta | Qué hace |
+|---------------|----------|
+| `POST /api/v1/posts` | Crea (`status`: `draft` \| `scheduled`). Hora como `scheduled_at` (ISO con offset) o `scheduled_local` + `timezone` (IANA, defecto `Europe/Madrid`) |
+| `PATCH /api/v1/posts/:id` | Edita contenido/horario. `409` si está publicado o publicándose. Dar hora nueva a un `failed` lo reencola |
+| `DELETE /api/v1/posts/:id` | Cancela (idempotente). `409` si está publicado o publicándose |
+| `POST /api/v1/posts/:id/publish` | Publicación inmediata. Requiere `Idempotency-Key`; los reintentos devuelven la misma respuesta (`Idempotent-Replayed: true`) |
+| `GET /api/v1/posts?status=&limit=&cursor=` | Listado paginado por cursor, del más reciente al más antiguo |
+| `GET /api/v1/posts/:id` | Detalle, con el motivo de espera o el error tipado |
+| `GET /api/v1/ambassadors` | Embajadores del tenant con su estado de cola |
+
+Errores: `{ "error": { "code": "...", "message": "..." } }` con códigos estables
+(`post_not_found`, `post_published`, `nonexistent_local_time`, `idempotency_key_reused`…).
+
+```bash
+TOKEN=$(curl -s -XPOST localhost:3000/api/demo/login -d '{"tenant":"acme"}' | jq -r .token)
+curl -s -XPOST localhost:3000/api/v1/posts -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"content":"Hola","scheduled_local":"2026-12-01T09:00","timezone":"Europe/Madrid"}'
 ```
 
 ### ¿Por qué va atrasado un Embajador?
@@ -67,7 +91,9 @@ npm test
 | N réplicas sin doble publicación; crash a mitad (fallo inyectado y `SIGKILL` real) | `worker/test/replicas.test.ts` |
 | 429 (por Embajador y por app), pacing, tokens expirados/revocados, 5xx hasta DLQ | `worker/test/behaviour.test.ts` |
 | Claim: cabeza de cola, reparto justo por tenant, caps, `SKIP LOCKED` | `worker/test/claim.test.ts` |
-| Petición cross-tenant rechazada a nivel SQL (RLS) | `packages/db/test/rls.test.ts` |
+| Petición cross-tenant rechazada a nivel SQL (RLS), en BD y a través de la API | `packages/db/test/rls.test.ts`, `app/test/api.test.ts` |
+| Idempotencia de `/publish` (reintento, concurrencia, clave reutilizada) | `app/test/api.test.ts` |
+| DST `Europe/Madrid` (cambio de hora, hora inexistente, hora ambigua) | `app/test/time.test.ts` |
 | Invariantes de estado en el esquema | `packages/db/test/schema.test.ts` |
 | Cifrado de tokens (AES-GCM, rotación de clave) | `packages/db/test/crypto.test.ts` |
 | Migraciones concurrentes aplicadas una sola vez | `packages/db/test/migrate.test.ts` |
@@ -76,6 +102,7 @@ npm test
 ## Estructura
 
 ```
+app/                        API Next.js (Route Handlers) + UI de demo
 worker/                     worker de publicación (proceso de larga vida)
 mock/                       mock del proveedor (servicio HTTP independiente)
 packages/db/                esquema SQL, migrador, acceso por tenant, cifrado de tokens, seed, CLI
