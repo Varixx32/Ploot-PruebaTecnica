@@ -23,6 +23,7 @@ El repositorio no contiene ningún secreto: el compose se niega a arrancar sin `
 | postgres | `localhost:5433` | Postgres 16 |
 | setup    | — | Un solo uso: migraciones + usuarios de BD + seed (idempotente) |
 | mock     | `http://localhost:4000` | Proveedor simulado ([contrato](mock/README.md)) |
+| worker   | — (2 réplicas) | Publicador de larga vida, fuera de Next.js ([diseño](worker/README.md)) |
 
 La configuración no secreta (latencias del mock, rate limits…) se ajusta en `.env`.
 
@@ -42,6 +43,14 @@ JWT para cualquier otra combinación (requiere `npm install`; lee `JWT_SECRET` d
 npm run cli -w @ploot/db -- jwt --tenant <tenant_uuid> --profile <ambassador_uuid>
 ```
 
+### ¿Por qué va atrasado un Embajador?
+
+```bash
+docker compose exec worker node dist/why.js Bruno     # nombre, provider_user_id o uuid
+docker compose logs -f worker                          # logs JSON: post_id, outcome, retry_after, lag
+docker compose exec worker wget -qO- localhost:9464/metrics
+```
+
 ## Tests
 
 Los tests de base de datos corren contra el Postgres del compose (credenciales de `.env`;
@@ -55,6 +64,9 @@ npm test
 
 | Qué se prueba | Dónde |
 |---------------|-------|
+| N réplicas sin doble publicación; crash a mitad (fallo inyectado y `SIGKILL` real) | `worker/test/replicas.test.ts` |
+| 429 (por Embajador y por app), pacing, tokens expirados/revocados, 5xx hasta DLQ | `worker/test/behaviour.test.ts` |
+| Claim: cabeza de cola, reparto justo por tenant, caps, `SKIP LOCKED` | `worker/test/claim.test.ts` |
 | Petición cross-tenant rechazada a nivel SQL (RLS) | `packages/db/test/rls.test.ts` |
 | Invariantes de estado en el esquema | `packages/db/test/schema.test.ts` |
 | Cifrado de tokens (AES-GCM, rotación de clave) | `packages/db/test/crypto.test.ts` |
@@ -64,6 +76,7 @@ npm test
 ## Estructura
 
 ```
+worker/                     worker de publicación (proceso de larga vida)
 mock/                       mock del proveedor (servicio HTTP independiente)
 packages/db/                esquema SQL, migrador, acceso por tenant, cifrado de tokens, seed, CLI
 packages/provider-fixtures/ identidades del proveedor compartidas por mock y seed
