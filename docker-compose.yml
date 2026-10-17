@@ -1,0 +1,68 @@
+# Local stack. Secrets have no defaults: run ./scripts/init-env.sh once to create .env.
+name: ploot
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ploot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run ./scripts/init-env.sh to create .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ploot}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  # One-shot: migrations (advisory-locked) + runtime login roles + idempotent seed.
+  setup:
+    build:
+      context: .
+      dockerfile: packages/db/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ploot}:${POSTGRES_PASSWORD:?run ./scripts/init-env.sh to create .env}@postgres:5432/${POSTGRES_DB:-ploot}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?run ./scripts/init-env.sh to create .env}
+      WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD:?run ./scripts/init-env.sh to create .env}
+      TOKEN_ENC_KEYS: ${TOKEN_ENC_KEYS:?run ./scripts/init-env.sh to create .env}
+      JWT_SECRET: ${JWT_SECRET:?run ./scripts/init-env.sh to create .env}
+      MOCK_FIXTURE_SECRET: ${MOCK_FIXTURE_SECRET:?run ./scripts/init-env.sh to create .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Simulated external provider (social network). The worker talks to it over HTTP only.
+  mock:
+    build:
+      context: .
+      dockerfile: mock/Dockerfile
+    environment:
+      MOCK_PORT: 4000
+      MOCK_FIXTURE_SECRET: ${MOCK_FIXTURE_SECRET:?run ./scripts/init-env.sh to create .env}
+      MOCK_ADMIN_KEY: ${MOCK_ADMIN_KEY:?run ./scripts/init-env.sh to create .env}
+      MOCK_LATENCY_MAX_MS: ${MOCK_LATENCY_MAX_MS:-3000}
+      MOCK_5XX_RATE: ${MOCK_5XX_RATE:-0.1}
+      MOCK_ACCESS_TOKEN_TTL_SEC: ${MOCK_ACCESS_TOKEN_TTL_SEC:-600}
+      MOCK_USER_RL_CAPACITY: ${MOCK_USER_RL_CAPACITY:-3}
+      MOCK_USER_RL_REFILL_PER_SEC: ${MOCK_USER_RL_REFILL_PER_SEC:-0.05}
+      MOCK_APP_RL_CAPACITY: ${MOCK_APP_RL_CAPACITY:-20}
+      MOCK_APP_RL_REFILL_PER_SEC: ${MOCK_APP_RL_REFILL_PER_SEC:-2}
+      MOCK_ADMIN_ENABLED: ${MOCK_ADMIN_ENABLED:-true}
+    ports:
+      - "${MOCK_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
+volumes:
+  pgdata:
