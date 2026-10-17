@@ -3,7 +3,7 @@
 Prueba técnica de backend: scheduler que publica en nombre de los Embajadores contra un
 proveedor externo. Next.js (Route Handlers) + worker separado + PostgreSQL + mock del proveedor.
 
-**URL pública:** _pendiente_ · Despliegue: Vercel (app) + Neon (Postgres) + Railway (worker y mock), todo en la UE — ver [infra/](infra/README.md)
+**URL pública:** https://ploot-pruebatecnica-app.vercel.app (botones «Entrar como acme / globex») · Despliegue: Vercel (app) + Neon (Postgres) + Railway (worker y mock), todo en la UE — ver [infra/](infra/README.md)
 
 ## Levantarlo en local
 

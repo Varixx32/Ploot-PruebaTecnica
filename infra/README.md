@@ -30,11 +30,14 @@ Todo en la UE (GDPR). Ningún secreto está en el repo: cada valor se configura 
    Es idempotente.
 4. **Railway**: proyecto en una región UE, conectado al repo (rama `assessment` mientras el PR no se mergee), con dos servicios.
    - `mock`: *Config file* `infra/railway/mock.json`. Variables: `MOCK_FIXTURE_SECRET`, `MOCK_ADMIN_KEY`,
-     `MOCK_HOST=::` (la red privada de Railway usa IPv6) y `PORT=4000`.
+     `MOCK_HOST=::` (la red privada de Railway usa IPv6), `PORT=4000` y `RAILWAY_DOCKERFILE_PATH=mock/Dockerfile`
+     (si no, Railpack intenta autodetectar el monorepo y falla con «No start command detected»).
    - `worker`: *Config file* `infra/railway/worker.json`. Variables:
      - `DATABASE_URL=postgres://ploot_worker_login:<WORKER_DB_PASSWORD>@<host directo>/<db>?sslmode=require`
      - `PROVIDER_BASE_URL=http://${{mock.RAILWAY_PRIVATE_DOMAIN}}:4000`
      - `TOKEN_ENC_KEYS`
+     - `RAILWAY_DOCKERFILE_PATH=worker/Dockerfile`
+     - *Settings → Deploy → Replicas*: 2 (si el config file no se aplica).
 5. **Vercel**: importar el repo con *Root Directory* `app` (usa `app/vercel.json`) y *Production Branch* `assessment`. Variables (Production):
    - `APP_DATABASE_URL=postgres://ploot_app_login:<APP_DB_PASSWORD>@<host -pooler>/<db>?sslmode=require`
    - `JWT_SECRET`, `APP_DB_POOL_MAX=1`, `DEMO_LOGIN_ENABLED=true`
