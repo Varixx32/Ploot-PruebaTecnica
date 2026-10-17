@@ -1,0 +1,136 @@
+# PR: typecheck + all tests (real Postgres) + image builds. Vercel posts a preview deploy per PR.
+# main: same checks, push images to GHCR, then a gated production deploy:
+#   migrations (expand-only, advisory-locked) -> worker/mock on Railway -> app on Vercel -> smoke test,
+#   with automatic rollback of the app if the smoke test fails.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # Ephemeral, network-isolated CI database: no password to keep out of the repo.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      TEST_ADMIN_DATABASE_URL: postgres://postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @ploot/db
+      - run: npm run typecheck
+      - run: npm test
+
+  images:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - { name: app, dockerfile: app/Dockerfile }
+          - { name: worker, dockerfile: worker/Dockerfile }
+          - { name: mock, dockerfile: mock/Dockerfile }
+          - { name: setup, dockerfile: packages/db/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.service.dockerfile }}
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/ploot-${{ matrix.service.name }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/ploot-${{ matrix.service.name }}:main
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: images
+    runs-on: ubuntu-latest
+    # Manual approval lives here: the "production" environment requires a reviewer.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Migrations (expand-only, idempotent, advisory-locked)
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+          WORKER_DB_PASSWORD: ${{ secrets.WORKER_DB_PASSWORD }}
+          TOKEN_ENC_KEYS: ${{ secrets.TOKEN_ENC_KEYS }}
+          MOCK_FIXTURE_SECRET: ${{ secrets.MOCK_FIXTURE_SECRET }}
+        run: |
+          umask 077
+          printf 'DATABASE_URL=%s\nAPP_DB_PASSWORD=%s\nWORKER_DB_PASSWORD=%s\nTOKEN_ENC_KEYS=%s\nMOCK_FIXTURE_SECRET=%s\n' \
+            "$DATABASE_URL" "$APP_DB_PASSWORD" "$WORKER_DB_PASSWORD" "$TOKEN_ENC_KEYS" "$MOCK_FIXTURE_SECRET" > .env.deploy
+          ./scripts/deploy-db.sh
+          rm -f .env.deploy
+
+      - name: Worker and mock (Railway)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npx --yes @railway/cli@4 up --ci --service mock
+          npx --yes @railway/cli@4 up --ci --service worker
+
+      - name: App (Vercel production)
+        id: vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx --yes vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+          npx --yes vercel@latest build --prod --token "$VERCEL_TOKEN"
+          echo "url=$(npx --yes vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test (rollback the app on failure)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$PUBLIC_URL/api/health" >/dev/null; then echo "healthy"; exit 0; fi
+            sleep 5
+          done
+          echo "Smoke test failed: rolling back the app" >&2
+          npx --yes vercel@latest rollback --yes --token "$VERCEL_TOKEN"
+          exit 1
