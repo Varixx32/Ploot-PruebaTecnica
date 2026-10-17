@@ -44,7 +44,8 @@ Todo en la UE (GDPR). Ningún secreto está en el repo: cada valor se configura 
    - `APP_DATABASE_URL=postgres://ploot_app_login:<APP_DB_PASSWORD>@<host -pooler>/<db>?sslmode=require`
    - `JWT_SECRET`, `APP_DB_POOL_MAX=1`, `DEMO_LOGIN_ENABLED=true`
 6. **Comprobar**: `https://<app>.vercel.app/api/health`, después la UI con «Entrar como acme».
-   Si algo va atrasado, se diagnostica con `railway run --service worker node dist/why.js Bruno`.
+   Si algo va atrasado: `railway run --service worker npm run why -w @ploot/worker -- Bruno`
+   (`railway run` ejecuta en local con las variables del servicio, que apuntan a Neon).
 
 `TOKEN_ENC_KEYS` y `MOCK_FIXTURE_SECRET` deben coincidir entre `.env.deploy` y Railway: el seed cifra
 y deriva los tokens con ellos.
