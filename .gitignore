@@ -22,3 +22,6 @@ coverage/
 
 # Private working notes (decisions/assumptions for the written answers)
 DECISIONES.md
+
+# Next.js
+next-env.d.ts
