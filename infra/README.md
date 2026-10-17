@@ -19,18 +19,13 @@ Todo en la UE (GDPR). Ningún secreto está en el repo: cada valor se configura 
 
 ## Pasos (una sola vez)
 
-1. **Generar secretos** en local (no se pegan en ningún sitio del repo):
-   ```bash
-   echo "APP_DB_PASSWORD=$(openssl rand -hex 24)"
-   echo "WORKER_DB_PASSWORD=$(openssl rand -hex 24)"
-   echo "TOKEN_ENC_KEYS=1:$(openssl rand -base64 32)"
-   echo "MOCK_FIXTURE_SECRET=$(openssl rand -hex 32)"
-   echo "MOCK_ADMIN_KEY=$(openssl rand -hex 24)"
-   echo "JWT_SECRET=$(openssl rand -hex 32)"
-   ```
+1. **Generar secretos** en local: `node scripts/deploy-env.mjs init` crea `.env.deploy` (gitignored) con
+   todos los secretos aleatorios; solo falta pegar la URL de Neon en `DATABASE_URL`.
 2. **Neon**: proyecto en `AWS Europe Central 1 (Frankfurt)`, Postgres 16. Copiar la *connection string*
    **directa** del owner.
-3. **Base de datos**: `cp infra/deploy.env.example .env.deploy`, rellenarlo y ejecutar `./scripts/deploy-db.sh`.
+3. **Base de datos**: `./scripts/deploy-db.sh` (usa siempre el host directo aunque se pegue el del pooler).
+   Después, `node scripts/deploy-env.mjs render` escribe en `.deploy/` (gitignored) un fichero por plataforma
+   con las variables ya montadas, listo para pegar en el *Raw Editor* de Railway y en Vercel.
    Aplica las migraciones, crea los usuarios `ploot_app_login` / `ploot_worker_login` y carga el seed de demo.
    Es idempotente.
 4. **Railway**: proyecto en una región UE, conectado al repo (rama `assessment` mientras el PR no se mergee), con dos servicios.

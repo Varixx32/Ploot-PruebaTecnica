@@ -25,3 +25,6 @@ DECISIONES.md
 
 # Next.js
 next-env.d.ts
+
+# Generated deploy configuration (contains secrets)
+.deploy/
