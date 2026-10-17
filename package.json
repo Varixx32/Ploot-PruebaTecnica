@@ -7,7 +7,8 @@
   },
   "workspaces": [
     "mock",
-    "packages/*"
+    "packages/*",
+    "worker"
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",
