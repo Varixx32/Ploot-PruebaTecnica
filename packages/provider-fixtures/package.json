@@ -1,0 +1,15 @@
+{
+  "name": "@ploot/provider-fixtures",
+  "private": true,
+  "description": "Provider identities shared by the mock and the DB seed. Tokens are derived from MOCK_FIXTURE_SECRET, never stored.",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "files": ["index.js", "index.d.ts", "accounts.json"]
+}

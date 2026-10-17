@@ -1,0 +1,39 @@
+{
+  "name": "@ploot/db",
+  "private": true,
+  "description": "Schema, migrations, tenant-scoped data access and dev tooling shared by app and worker",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "default": "./dist/admin.js"
+    }
+  },
+  "bin": {
+    "ploot-db": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "cli": "tsx --env-file-if-exists=../../.env src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@ploot/provider-fixtures": "*",
+    "jose": "^6.2.12",
+    "pg": "^8.23.1"
+  }
+}

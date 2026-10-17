@@ -1,0 +1,11 @@
+{
+  "accounts": [
+    { "provider_user_id": "pu_acme_ana",     "state": "valid" },
+    { "provider_user_id": "pu_acme_bruno",   "state": "valid" },
+    { "provider_user_id": "pu_acme_carla",   "state": "expired" },
+    { "provider_user_id": "pu_globex_diego", "state": "valid" },
+    { "provider_user_id": "pu_globex_elena", "state": "expired" },
+    { "provider_user_id": "pu_globex_fede",  "state": "revoked" },
+    { "provider_user_id": "pu_globex_gina",  "state": "revoked" }
+  ]
+}
