@@ -113,6 +113,32 @@ describe("tenant isolation enforced by Postgres (RLS), not by the route handler"
     expect(pgError(del).code).toBe("42501");
   });
 
+  it("the queue-status view respects RLS for the app role", async () => {
+    const tenants = await withTenant(app, ACME, async (tx) =>
+      (await tx.query<{ tenant_id: string }>("SELECT DISTINCT tenant_id FROM ambassador_queue_status")).rows,
+    );
+    expect(tenants.map((r) => r.tenant_id)).toEqual([SEED_TENANTS.acme]);
+  });
+
+  it("at most one post per Embajador can be publishing (unique partial index)", async () => {
+    const client = await owner.connect();
+    try {
+      await client.query("BEGIN");
+      const claim = (label: string) =>
+        client.query(
+          `UPDATE posts SET status = 'publishing', lease_owner = 'test', lease_expires_at = now() + interval '1 minute'
+            WHERE id = $1`,
+          [seedUuid(label)],
+        );
+      await claim("bruno-burst-1");
+      const err = await claim("bruno-burst-2").catch((e: unknown) => e);
+      expect(pgError(err).constraint).toBe("posts_one_publishing_per_ambassador");
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
   it("the worker role operates across tenants", async () => {
     const { rows } = await worker.query("SELECT count(DISTINCT tenant_id)::int AS n FROM posts");
     expect(rows[0].n).toBe(2);
