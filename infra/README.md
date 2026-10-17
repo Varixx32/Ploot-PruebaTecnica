@@ -33,14 +33,14 @@ Todo en la UE (GDPR). Ningún secreto está en el repo: cada valor se configura 
 3. **Base de datos**: `cp infra/deploy.env.example .env.deploy`, rellenarlo y ejecutar `./scripts/deploy-db.sh`.
    Aplica las migraciones, crea los usuarios `ploot_app_login` / `ploot_worker_login` y carga el seed de demo.
    Es idempotente.
-4. **Railway**: proyecto en una región UE, conectado al repo, con dos servicios.
+4. **Railway**: proyecto en una región UE, conectado al repo (rama `assessment` mientras el PR no se mergee), con dos servicios.
    - `mock`: *Config file* `infra/railway/mock.json`. Variables: `MOCK_FIXTURE_SECRET`, `MOCK_ADMIN_KEY`,
-     `MOCK_HOST=::` (la red privada de Railway usa IPv6).
+     `MOCK_HOST=::` (la red privada de Railway usa IPv6) y `PORT=4000`.
    - `worker`: *Config file* `infra/railway/worker.json`. Variables:
      - `DATABASE_URL=postgres://ploot_worker_login:<WORKER_DB_PASSWORD>@<host directo>/<db>?sslmode=require`
-     - `PROVIDER_BASE_URL=http://${{mock.RAILWAY_PRIVATE_DOMAIN}}:${{mock.PORT}}`
+     - `PROVIDER_BASE_URL=http://${{mock.RAILWAY_PRIVATE_DOMAIN}}:4000`
      - `TOKEN_ENC_KEYS`
-5. **Vercel**: importar el repo con *Root Directory* `app` (usa `app/vercel.json`). Variables (Production):
+5. **Vercel**: importar el repo con *Root Directory* `app` (usa `app/vercel.json`) y *Production Branch* `assessment`. Variables (Production):
    - `APP_DATABASE_URL=postgres://ploot_app_login:<APP_DB_PASSWORD>@<host -pooler>/<db>?sslmode=require`
    - `JWT_SECRET`, `APP_DB_POOL_MAX=1`, `DEMO_LOGIN_ENABLED=true`
 6. **Comprobar**: `https://<app>.vercel.app/api/health`, después la UI con «Entrar como acme».
