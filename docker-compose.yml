@@ -64,6 +64,23 @@ services:
       retries: 15
       start_period: 3s
 
+  # Next.js API (Route Handlers, Node runtime) + demo UI. Connects with the RLS-scoped role.
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    environment:
+      APP_DATABASE_URL: postgres://ploot_app_login:${APP_DB_PASSWORD:?run ./scripts/init-env.sh to create .env}@postgres:5432/${POSTGRES_DB:-ploot}
+      JWT_SECRET: ${JWT_SECRET:?run ./scripts/init-env.sh to create .env}
+      APP_DB_POOL_MAX: ${APP_DB_POOL_MAX:-5}
+      DEMO_LOGIN_ENABLED: ${DEMO_LOGIN_ENABLED:-true}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   # Long-lived publisher, outside any serverless function. Replicas coordinate only through
   # Postgres (row locks + leases), so scaling is just more containers.
   worker:
