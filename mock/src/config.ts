@@ -41,7 +41,8 @@ function bool(env: NodeJS.ProcessEnv, key: string, fallback: boolean): boolean {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): MockConfig {
   const config: MockConfig = {
-    port: num(env, "MOCK_PORT", 4000),
+    // PaaS (Railway, Render...) inject PORT; MOCK_PORT wins when both are set.
+    port: num(env, "MOCK_PORT", num(env, "PORT", 4000)),
     host: env.MOCK_HOST ?? "0.0.0.0",
     latencyMaxMs: num(env, "MOCK_LATENCY_MAX_MS", 3000),
     errorRate5xx: num(env, "MOCK_5XX_RATE", 0.1),

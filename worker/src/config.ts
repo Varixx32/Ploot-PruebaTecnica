@@ -71,7 +71,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     httpTimeoutMs: num(env, "WORKER_HTTP_TIMEOUT_MS", 8000),
     tokenRefreshSkewSec: num(env, "WORKER_TOKEN_REFRESH_SKEW_SEC", 60),
     defaultRetryAfterSec: num(env, "WORKER_DEFAULT_RETRY_AFTER_SEC", 30),
-    httpPort: num(env, "WORKER_HTTP_PORT", 9464),
+    // PaaS health checks hit $PORT; WORKER_HTTP_PORT wins when both are set.
+    httpPort: num(env, "WORKER_HTTP_PORT", num(env, "PORT", 9464)),
   };
 
   // The lease must outlive the slowest possible processing (refresh + publish), or a healthy
